@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+
+count=1
+
+# Цвета текста для скрипта и спец символы
+reset="\033[0m" # Стандартный текст
+highlight="\033[41m\033[97m" # Подсвеченый текст
+dot="\033[33m▸ $reset" # Пункт
+dim="\033[2m" # Тусклый текст
+bold="\033[1m" # Жирный текст
+
+# Полное имя папки скрипта
+cwd="$(cd "$(dirname "$0")" && pwd)"
+
+# Поддержка прав root
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+
+# Вывод заголовка
+headline() {
+    printf "${highlight} %s ${reset}\n" "$@"
+}
+
+# Вывод подзаголовка
+chapter() {
+    echo -e "${highlight} $((count++)).) $@ ${reset}\n"
+}
+
+# Вывод информации выполнения
+step() {
+    echo -e "${dot}$@"
+}
+
+# Для вывода и демонстрации команд настроек
+run() {
+    echo -e "${dim}▹ $@ $reset"
+    eval $@
+    echo ""
+}
+
+
+echo ""
+headline "Скрипт позволяет провести настройку чистой системы MacOS"
+echo ""
+
+
+step "Изменение некоторых настроек требует прав root пользователя"
+sudo -v
+echo ""
+
+
+chapter "Основные настройки"
+
+
+step "Отключить OS X Gate Keeper?"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run sudo spctl --master-disable
+        run sudo defaults write /var/db/SystemPolicy-prefs.plist enabled -string no
+        ;;
+esac
+
+step "Отключить предупреждение при открытии приложений не из AppStore"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run defaults write com.apple.LaunchServices LSQuarantine -bool false
+        ;;
+esac
+
+chapter "Настройка устройств ввода"
+
+step "Включить тап по тачпаду для клика"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool true
+        run defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
+        run defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
+        ;;
+esac
+
+step "Установить быстрое повторение при зажиме клавиши"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run defaults write NSGlobalDomain KeyRepeat -int 2
+        run defaults write NSGlobalDomain InitialKeyRepeat -int 10
+        ;;
+esac
+
+
+step "Запретить iTunes запуск от нажатия клавиш на клавиатуре"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run launchctl unload -w /System/Library/LaunchAgents/com.apple.rcd.plist 2> /dev/null
+        ;;
+esac
+
+
+chapter "Настройка Finder"
+
+step "Открывать папку загрузок при открытии Finder"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run defaults write com.apple.finder NewWindowTarget -string '"PfLo"'
+        run defaults write com.apple.finder NewWindowTargetPath -string "'file://${HOME}/Downloads/'"
+        ;;
+esac
+
+
+step "Показать значки для жестких дисков, серверов и съемных носителей на рабочем столе"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run defaults write com.apple.finder ShowExternalHardDrivesOnDesktop -bool true
+        run defaults write com.apple.finder ShowHardDrivesOnDesktop -bool true
+        run defaults write com.apple.finder ShowMountedServersOnDesktop -bool true
+        run defaults write com.apple.finder ShowRemovableMediaOnDesktop -bool true
+        ;;
+esac
+
+
+step "Показать все расширения имен файлов"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run defaults write NSGlobalDomain AppleShowAllExtensions -bool true
+        ;;
+esac
+
+step "Отключить предупреждения при смене расширения файлов"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
+        ;;
+esac
+
+step "Использовать режим списка в Finder по усолчанию"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run defaults write com.apple.finder FXPreferredViewStyle -string '"Nlsv"'
+        ;;
+esac
+
+step "Показывать ~/Library folder каталог"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run chflags nohidden ~/Library
+        ;;
+esac
+
+step "Показывать /Volumes folder каталог"
+case $(read choice; echo $choice) in
+    [nN] )
+        echo ""
+        ;;
+    [yY] )
+        echo ""
+        run sudo chflags nohidden /Volumes
+        ;;
+esac
+
+
+chapter "Установка"
+
+step "Homebrew"
+
+run '/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"'
+
+for app in $(<$cwd/formulae); do
+        run brew install $app
+done
+
+step "Desktop apps"
+
+for app in $(<$cwd/desktop); do
+        run brew cask install $app
+done
+
+
+step "Шрифты"
+
+for i in `find $cwd/fonts -name '*.otf'` ; do 
+    cp i /Library/fonts/
+done
+
+
+run killall Dock
